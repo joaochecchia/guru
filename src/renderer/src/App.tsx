@@ -13,14 +13,16 @@ const PAGES: { id: Page; label: string }[] = [
 
 export function App() {
   const [page, setPage] = useState<Page>('generate')
-  const [capture, setCapture] = useState<string | null>(null)
+  const [captures, setCaptures] = useState<string[]>([])
+  const [notes, setNotes] = useState('')
   // Incrementa a cada captura feita pelo atalho; a tela de geração reage começando a gerar.
   const [autoGenerateSignal, setAutoGenerateSignal] = useState(0)
 
   useEffect(
     () =>
-      window.guru.onCapture(({ image, autoGenerate }) => {
-        setCapture(image)
+      window.guru.onCapture(({ images, autoGenerate, notes: captureNotes }) => {
+        setCaptures(images)
+        setNotes(captureNotes ?? '')
         setPage('generate')
         if (autoGenerate) setAutoGenerateSignal((n) => n + 1)
       }),
@@ -45,9 +47,13 @@ export function App() {
         {/* As páginas ficam montadas para não perder o que está em edição ao trocar de aba. */}
         <div hidden={page !== 'generate'}>
           <GeneratePage
-            capture={capture}
+            captures={captures}
+            notes={notes}
             autoGenerateSignal={autoGenerateSignal}
-            onCaptureChange={setCapture}
+            onCapturesChange={(images) => {
+              setCaptures(images)
+              if (images.length === 0) setNotes('')
+            }}
             onOpenSettings={() => setPage('settings')}
           />
         </div>

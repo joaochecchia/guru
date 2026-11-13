@@ -1,0 +1,478 @@
+:root {
+  --bg: #14161b;
+  --surface: #1c1f26;
+  --surface-2: #232731;
+  --text: #e8e9ed;
+  --muted: #9aa0ae;
+  --border: #2d313b;
+  --accent: #7b93ff;
+  --accent-2: #b48cff;
+  --accent-text: #0e1118;
+  --danger: #ff7b6b;
+  --error-bg: #3b1d1a;
+  --fresh: rgba(123, 147, 255, 0.16);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font: 13.5px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ---------- Cabeçalho (arrasta a janela) ---------- */
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.panel-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.25;
+}
+
+.panel-title strong {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.panel-title span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+button.icon {
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 13px;
+}
+
+button.icon:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ---------- A bolinha do Guru ---------- */
+
+.orb {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.85), transparent 38%),
+    conic-gradient(from 0deg, var(--accent), var(--accent-2), #6fd3ff, var(--accent));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: filter 0.3s;
+}
+
+.orb.still {
+  filter: saturate(0.35) brightness(0.8);
+}
+
+.orb.watching {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+.orb.thinking {
+  animation:
+    spin 1.6s linear infinite,
+    glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 rgba(123, 147, 255, 0);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow: 0 0 10px 1px rgba(123, 147, 255, 0.35);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 4px 0 rgba(180, 140, 255, 0.4);
+  }
+  to {
+    box-shadow: 0 0 16px 3px rgba(123, 147, 255, 0.6);
+  }
+}
+
+/* ---------- Corpo ---------- */
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hint {
+  color: var(--muted);
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.empty {
+  text-align: center;
+  padding: 28px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.empty p {
+  margin: 0;
+}
+
+.notice {
+  border-radius: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+}
+
+.notice.error {
+  background: var(--error-bg);
+  border-color: var(--danger);
+}
+
+/* ---------- Tópicos ---------- */
+
+.topic {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  transition:
+    background 0.6s,
+    border-color 0.6s;
+  animation: enter 0.3s ease-out;
+}
+
+.topic.field {
+  border-left: 3px solid var(--accent);
+}
+
+.topic.fresh {
+  background: linear-gradient(var(--fresh), var(--fresh)), var(--surface);
+}
+
+.topic.updating {
+  border-color: var(--accent);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.topic-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 4px;
+}
+
+.topic-title {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.chevron {
+  color: var(--muted);
+  font-size: 11px;
+  width: 10px;
+}
+
+.copy {
+  font-size: 12px;
+  padding: 3px 9px;
+}
+
+.topic-body {
+  padding: 0 12px 10px 26px;
+}
+
+.topic-body p,
+.bubble p {
+  margin: 0 0 6px;
+}
+
+.topic-body ul,
+.topic-body ol,
+.bubble ul,
+.bubble ol {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+
+.topic-body li {
+  margin-bottom: 3px;
+}
+
+.topic-body h4 {
+  margin: 8px 0 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  background: var(--surface-2);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: blink 0.9s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Chat ---------- */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: 12px;
+  animation: enter 0.25s ease-out;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-bottom-right-radius: 4px;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border-bottom-left-radius: 4px;
+}
+
+.bubble > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Rodapé ---------- */
+
+.panel-foot {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thinking-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  min-width: 0;
+}
+
+.thinking-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 3px;
+  flex: none;
+}
+
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.composer textarea {
+  flex: 1;
+  resize: none;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.pdf {
+  font-size: 12.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb.watching,
+  .orb.thinking,
+  .caret,
+  .dots i,
+  .topic,
+  .bubble {
+    animation: none;
+  }
+}

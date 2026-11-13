@@ -452,3 +452,17 @@ a {
   margin: 6px 0 0;
   font-size: 14px;
 }
+
+.capture-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.capture-strip img {
+  height: 150px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex: none;
+}

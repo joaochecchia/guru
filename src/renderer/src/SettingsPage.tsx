@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { SettingsInfo } from '../../shared/types'
+import type { AiModel, SettingsInfo } from '../../shared/types'
 import { errorMessage } from './util'
 
 export function SettingsPage() {
   const [info, setInfo] = useState<SettingsInfo | null>(null)
-  const [apiKey, setApiKey] = useState('')
+  const [apiKeys, setApiKeys] = useState({ anthropic: '', openai: '' })
   const [shortcut, setShortcut] = useState('')
+  const [liveShortcut, setLiveShortcut] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
     window.guru.getSettings().then((settings) => {
       setInfo(settings)
       setShortcut(settings.shortcut)
+      setLiveShortcut(settings.liveShortcut)
     })
   }, [])
 
@@ -22,186 +24,101 @@ export function SettingsPage() {
       const next = await task()
       setInfo(next)
       setShortcut(next.shortcut)
+      setLiveShortcut(next.liveShortcut)
       setMessage(done)
     } catch (e) {
       setMessage(errorMessage(e))
     }
   }
 
-  const keyStatus = {
-    stored: 'Chave cadastrada e guardada no cofre de senhas do sistema.',
-    env: 'Usando a chave da variável de ambiente ANTHROPIC_API_KEY.',
-    none: 'Nenhuma chave cadastrada.'
-  }[info.apiKeySource]
+  const openai = info.engine === 'openai-api' || info.engine === 'codex'
+  const models = openai
+    ? ([['gpt-6.1-sol', 'GPT-6.1 Sol'], ['gpt-6.1-terra', 'GPT-6.1 Terra'], ['gpt-6-luna', 'GPT-6 Luna'], ['gpt-6-astra', 'GPT-6 Astra'], ...(info.engine === 'codex' ? [['codex-default', 'Padrão do Codex']] : [])] as const)
+    : ([['opus', 'Claude Opus'], ['sonnet', 'Claude Sonnet']] as const)
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1>Configurações</h1>
-      </header>
-
+      <header className="page-header"><h1>Configurações</h1></header>
       {message && <div className="notice">{message}</div>}
-
       <section className="card">
         <h2>Motor de IA</h2>
         <div className="options" role="radiogroup" aria-label="Motor de IA">
-          <label className="option">
-            <input
-              type="radio"
-              name="engine"
-              checked={info.engine === 'api'}
-              onChange={() => apply(() => window.guru.setAi({ engine: 'api' }), 'Usando a API da Anthropic.')}
-            />
-            <span>
-              <strong>API da Anthropic</strong> <span className="badge">Recomendado</span>
-              <br />
-              <span className="hint">Cobrado por uso na sua conta da API. Mais rápido e com formato garantido.</span>
-            </span>
-          </label>
-          <label className="option">
-            <input
-              type="radio"
-              name="engine"
-              checked={info.engine === 'claude-code'}
-              onChange={() =>
-                apply(() => window.guru.setAi({ engine: 'claude-code' }), 'Usando o Claude Code com sua assinatura.')
-              }
-            />
-            <span>
-              <strong>Claude Code com sua assinatura</strong> <span className="badge warn">Experimental</span>
-              <br />
-              <span className="hint">
-                Usa o Claude Code instalado neste computador e conta no limite de uso da sua assinatura Pro ou Max.
-              </span>
-            </span>
-          </label>
+          {([
+            ['anthropic-api', 'API da Anthropic', 'opus'],
+            ['claude-code', 'Claude Code', 'opus'],
+            ['openai-api', 'API da OpenAI', 'gpt-6.1-sol'],
+            ['codex', 'Codex CLI', 'codex-default']
+          ] as const).map(([engine, label, model]) => (
+            <label className="option" key={engine}>
+              <input type="radio" name="engine" checked={info.engine === engine}
+                onChange={() => apply(() => window.guru.setAi({ engine, model }), `Usando ${label}.`)} />
+              <span><strong>{label}</strong></span>
+            </label>
+          ))}
         </div>
-
-        {info.engine === 'claude-code' && (
-          <>
-            <div className={info.claudeCode.found ? 'notice ok' : 'notice error'}>
-              {info.claudeCode.found ? (
-                <>
-                  Claude Code {info.claudeCode.version} encontrado em <code>{info.claudeCode.path}</code>. Ele precisa
-                  estar logado: se a geração falhar por login, rode <code>claude</code> num terminal e use{' '}
-                  <code>/login</code>.
-                </>
-              ) : (
-                <>
-                  Claude Code não encontrado. Instale seguindo{' '}
-                  <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noreferrer">
-                    o guia oficial
-                  </a>
-                  , faça login e clique em Procurar de novo.
-                </>
-              )}{' '}
-              <button
-                className="link"
-                onClick={() => apply(() => window.guru.detectClaudeCode(), 'Busca pelo Claude Code concluída.')}
-              >
-                Procurar de novo
-              </button>
-            </div>
-            <div className="notice warn">
-              <strong>Antes de usar, leia sobre os termos.</strong> A Anthropic restringe o uso de assinaturas do
-              claude.ai por produtos de terceiros. Este modo existe para uso pessoal, com o Claude Code e a conta da
-              própria pessoa. Na dúvida, use a API.
-            </div>
-          </>
-        )}
-
+        {info.engine === 'claude-code' && <div className={info.claudeCode.found ? 'notice ok' : 'notice error'}>
+          {info.claudeCode.found ? `Claude Code ${info.claudeCode.version} encontrado.` : 'Claude Code não encontrado.'}{' '}
+          <button className="link" onClick={() => apply(() => window.guru.detectClaudeCode(), 'Busca concluída.')}>Procurar de novo</button>
+        </div>}
+        {info.engine === 'codex' && <div className={info.codex.found ? 'notice ok' : 'notice error'}>
+          {info.codex.found ? `Codex CLI ${info.codex.version} encontrado. Faça login com codex login se necessário.` : 'Codex CLI não encontrado. Instale e entre com codex login.'}{' '}
+          <button className="link" onClick={() => apply(() => window.guru.detectCodex(), 'Busca concluída.')}>Procurar de novo</button>
+        </div>}
         <h3 className="subhead">Modelo</h3>
         <div className="options" role="radiogroup" aria-label="Modelo">
-          <label className="option">
-            <input
-              type="radio"
-              name="model"
-              checked={info.model === 'opus'}
-              onChange={() => apply(() => window.guru.setAi({ model: 'opus' }), 'Modelo: Claude Opus.')}
-            />
-            <span>
-              <strong>Opus</strong>
-              <br />
-              <span className="hint">Melhor qualidade de escrita e seleção do que importa para cada vaga.</span>
-            </span>
-          </label>
-          <label className="option">
-            <input
-              type="radio"
-              name="model"
-              checked={info.model === 'sonnet'}
-              onChange={() => apply(() => window.guru.setAi({ model: 'sonnet' }), 'Modelo: Claude Sonnet.')}
-            />
-            <span>
-              <strong>Sonnet</strong>
-              <br />
-              <span className="hint">
-                {info.engine === 'api'
-                  ? 'Metade do custo do Opus na API e mais rápido. Bom para a maioria das vagas.'
-                  : 'Mais rápido e gasta menos do limite da assinatura.'}
-              </span>
-            </span>
-          </label>
+          {models.map(([model, label]) => <label className="option" key={model}>
+            <input type="radio" name="model" checked={info.model === model}
+              onChange={() => apply(() => window.guru.setAi({ model: model as AiModel }), `Modelo: ${label}.`)} />
+            <span><strong>{label}</strong></span>
+          </label>)}
         </div>
       </section>
-
-      <section className="card">
-        <h2>Chave de API da Anthropic</h2>
-        {info.engine === 'claude-code' && (
-          <p className="hint">Não é usada enquanto o motor for o Claude Code.</p>
-        )}
-        <p className="hint">
-          {keyStatus} Crie a sua em{' '}
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-            console.anthropic.com
-          </a>
-          . Cada currículo gerado é cobrado na sua conta da Anthropic.
-        </p>
+      {([
+        ['anthropic', 'Anthropic', info.anthropicApiKeySource, 'ANTHROPIC_API_KEY', 'https://console.anthropic.com/settings/keys'],
+        ['openai', 'OpenAI', info.openAiApiKeySource, 'OPENAI_API_KEY', 'https://platform.openai.com/api-keys']
+      ] as const).map(([provider, name, source, envName, url]) => <section className="card" key={provider}>
+        <h2>Chave de API da {name}</h2>
+        <p className="hint">{source === 'stored' ? 'Chave guardada no cofre de senhas do sistema.' : source === 'env' ? `Usando ${envName}.` : 'Nenhuma chave cadastrada.'} <a href={url} target="_blank" rel="noreferrer">Criar chave</a></p>
         <div className="inline">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-ant-…"
-            autoComplete="off"
-            aria-label="Chave de API"
-          />
-          <button
-            className="primary"
-            disabled={!apiKey.trim()}
-            onClick={() =>
-              apply(async () => {
-                const next = await window.guru.setApiKey(apiKey)
-                setApiKey('')
-                return next
-              }, 'Chave salva.')
-            }
-          >
-            Salvar chave
-          </button>
-          {info.apiKeySource === 'stored' && (
-            <button className="ghost danger" onClick={() => apply(() => window.guru.setApiKey(''), 'Chave removida.')}>
-              Remover
-            </button>
-          )}
+          <input type="password" value={apiKeys[provider]} onChange={(e) => setApiKeys({ ...apiKeys, [provider]: e.target.value })} autoComplete="off" aria-label={`Chave da ${name}`} />
+          <button className="primary" disabled={!apiKeys[provider].trim()} onClick={() => apply(async () => {
+            const next = await window.guru.setApiKey(provider, apiKeys[provider]); setApiKeys({ ...apiKeys, [provider]: '' }); return next
+          }, 'Chave salva.')}>Salvar chave</button>
+          {source === 'stored' && <button className="ghost danger" onClick={() => apply(() => window.guru.setApiKey(provider, ''), 'Chave removida.')}>Remover</button>}
         </div>
-      </section>
+      </section>)}
 
       <section className="card">
-        <h2>Atalho de captura</h2>
+        <h2>Atalhos</h2>
         <p className="hint">
           Formato do Electron, por exemplo <code>CommandOrControl+Y</code> ou <code>Alt+Shift+C</code>.
         </p>
-        <div className="inline">
-          <input value={shortcut} onChange={(e) => setShortcut(e.target.value)} aria-label="Atalho de captura" />
-          <button onClick={() => apply(() => window.guru.setShortcut(shortcut), 'Atalho atualizado.')}>
-            Aplicar
-          </button>
-        </div>
+        <label className="field">
+          <span>Um print: captura a tela e gera o currículo</span>
+          <div className="inline">
+            <input value={shortcut} onChange={(e) => setShortcut(e.target.value)} aria-label="Atalho de um print" />
+            <button onClick={() => apply(() => window.guru.setShortcut(shortcut), 'Atalho atualizado.')}>
+              Aplicar
+            </button>
+          </div>
+        </label>
+        <label className="field">
+          <span>Modo ao vivo: abre o painel que acompanha a tela com sugestões em tempo real</span>
+          <div className="inline">
+            <input
+              value={liveShortcut}
+              onChange={(e) => setLiveShortcut(e.target.value)}
+              aria-label="Atalho do modo ao vivo"
+            />
+            <button onClick={() => apply(() => window.guru.setLiveShortcut(liveShortcut), 'Atalho atualizado.')}>
+              Aplicar
+            </button>
+          </div>
+        </label>
         <p className={info.shortcutRegistered ? 'hint' : 'notice warn'}>
           {info.shortcutRegistered
             ? info.shortcutViaSystem
-              ? 'Atalho criado nas configurações de teclado do GNOME, com o nome "Guru: capturar vaga". Funciona mesmo com a janela fechada.'
+              ? 'Atalhos criados nas configurações de teclado do GNOME ("Guru: capturar vaga" e "Guru: modo ao vivo"). Funcionam mesmo com a janela fechada.'
               : 'Atalho registrado.'
             : info.shortcutError
               ? `Não foi possível criar o atalho: ${info.shortcutError}`

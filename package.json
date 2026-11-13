@@ -5,9 +5,9 @@
   "main": "./out/main/index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/run.mjs dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "node scripts/run.mjs preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

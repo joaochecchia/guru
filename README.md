@@ -15,16 +15,33 @@ Assistente de candidaturas para desktop. Com a vaga aberta na tela, você aperta
 
 O Guru avisa quais requisitos da vaga o seu perfil não cobre, em vez de inventar experiência para preenchê-los.
 
+## Modo ao vivo
+
+Além do atalho de um print (**Ctrl+Y**), o Guru tem um painel que acompanha a vaga enquanto você navega. Abra com **Ctrl+Alt+Y** ou pelo ícone do Guru na barra do sistema → **Modo ao vivo**.
+
+- O painel abre no canto superior direito, por cima das outras janelas. Na primeira vez em cada sessão, o sistema pergunta qual tela compartilhar.
+- Role a página da vaga normalmente. O painel compara a tela localmente, sem custo, e guarda um print novo quando você para de rolar. Os prints vão juntos ao Claude.
+- A resposta aparece em tempo real, separada em tópicos: numa vaga, as seções do currículo (vaga, resumo, experiências, projetos, habilidades, pontos de atenção); num formulário como o da Gupy, um tópico por campo com a resposta pronta. Cada tópico tem botão de copiar.
+- No chat do painel você pede alterações ("deixe o resumo mais curto") ou explicações. O tópico alterado é substituído no lugar.
+- **Gerar currículo em PDF com esta vaga** abre a janela principal com os prints e os ajustes pedidos no chat.
+- O próprio painel é coberto nos prints, para não aparecer na análise.
+
+Cada análise automática custa por volta de US$ 0,05 a 0,10 com o Opus na API (metade com o Sonnet); o painel espera pelo menos 6 segundos entre análises. Pelo motor Claude Code, conta no limite da assinatura.
+
+No GNOME com Wayland, o Guru roda via XWayland para o painel abrir no canto superior direito (no Wayland nativo o sistema ignora a posição pedida pela janela). O `npm run dev` e os atalhos já passam a opção certa; a captura de tela continua pelo portal do sistema. Para usar o Wayland nativo, rode `GURU_NATIVE_WAYLAND=1 npm run dev`: tudo funciona, mas o painel abre onde o GNOME decidir.
+
 ## Motor de IA
 
 Em **Configurações → Motor de IA** você escolhe como o Claude roda:
 
 | Motor | Custo | Observações |
 |---|---|---|
-| **API da Anthropic** (padrão) | Por uso, na sua conta da API | Mais rápido, formato da resposta garantido pelo servidor. |
-| **Claude Code com sua assinatura** (experimental) | Conta no limite de uso da assinatura Pro ou Max | Precisa do [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) instalado e logado neste computador. |
+| **API da Anthropic** (padrão) | Por uso, na sua conta da API | Modelos Opus e Sonnet. |
+| **Claude Code** | Conforme autenticação do CLI | Requer Claude Code instalado e logado. |
+| **API da OpenAI** | Por uso, na sua conta da API | Requer chave da OpenAI; modelos GPT selecionáveis. |
+| **Codex CLI** | Conforme autenticação do CLI | Requer `codex` instalado e logado; usa o modelo padrão do Codex ou um GPT selecionado. |
 
-E o modelo: **Opus** (melhor qualidade) ou **Sonnet** (metade do custo na API e mais rápido).
+O seletor mostra **Opus/Sonnet** para os motores Anthropic e modelos **GPT** para a API da OpenAI e o Codex CLI. A chave da OpenAI pode ser cadastrada em Configurações ou definida em `OPENAI_API_KEY`; ela é independente da chave da Anthropic. Para usar Codex CLI, instale o comando `codex` e faça login com `codex login`.
 
 Como funciona o modo Claude Code: o app grava o print ou o arquivo numa pasta temporária, executa `claude -p` nela e apaga a pasta ao final. O Claude Code roda em modo restrito (`--restricted --tools Read`): só lê arquivos dessa pasta, não executa comandos e ignora suas configurações pessoais. A chave de API não é repassada a ele, para que o uso conte na assinatura.
 
@@ -64,7 +81,8 @@ cp .env.example .env
 
 | Variável | Para que serve |
 |---|---|
-| `ANTHROPIC_API_KEY` | Alternativa a cadastrar a chave em Configurações. A chave salva em Configurações tem prioridade. |
+| `ANTHROPIC_API_KEY` | Alternativa a cadastrar a chave da Anthropic em Configurações. A chave salva tem prioridade. |
+| `OPENAI_API_KEY` | Alternativa a cadastrar a chave da OpenAI em Configurações. A chave salva tem prioridade. |
 | `GITHUB_TOKEN` | Opcional. Inclui seus repositórios privados na análise do GitHub. Sem ele, só os públicos são lidos. |
 
 Variáveis já definidas no terminal têm prioridade sobre o `.env`. O app empacotado não lê `.env`.
@@ -110,12 +128,14 @@ src/
     capture.ts   captura de tela
     claude.ts    prompts e tarefas (gerar currículo, importar perfil, analisar GitHub)
     engine*.ts   motores de IA: API da Anthropic ou Claude Code (claude -p)
+    live.ts      modo ao vivo: conversa em streaming com os prints da tela
+    panel.ts     janela do painel ao vivo
     resume-file.ts  leitura do currículo importado (PDF, DOCX, imagem, TXT)
     pdf.ts       template HTML do currículo e exportação para PDF
     github.ts    busca de repositórios e READMEs no GitHub
     store.ts     perfil e configurações em disco
   preload/       ponte segura entre a interface e o processo principal
-  renderer/      interface em React
+  renderer/      interface em React (janela principal e painel ao vivo em src/panel/)
   shared/        tipos, schemas do Claude e a mesclagem do perfil importado
 ```
 
@@ -131,8 +151,8 @@ src/
 - [ ] Histórico de candidaturas (vaga, data, PDF gerado, status)
 - [x] Motor alternativo pelo Claude Code com a assinatura (experimental) e escolha entre Opus e Sonnet
 - [ ] Mais templates de currículo
-- [ ] Modo formulário: ler os campos de sites como a Gupy e sugerir o texto de cada um para copiar
-- [ ] Extensão de navegador para preencher os formulários automaticamente
+- [x] Modo ao vivo: painel com sugestões em tempo real por tópico, inclusive respostas por campo em formulários
+- [ ] Inserir as respostas direto nos campos (extensão de navegador)
 - [ ] Instaladores para Linux e Windows; depois macOS
   - No Linux, o pacote precisa configurar o sandbox do Chromium (perfil do AppArmor ou `chrome-sandbox` com SUID). Em desenvolvimento o atalho do GNOME usa `--no-sandbox` para contornar isso.
 

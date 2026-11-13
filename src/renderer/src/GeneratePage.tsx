@@ -3,14 +3,18 @@ import type { GenerateResult } from '../../shared/types'
 import { errorMessage } from './util'
 
 interface Props {
-  capture: string | null
+  /** Um print (atalho de captura) ou vários (leitura enviada pelo painel ao vivo). */
+  captures: string[]
+  /** Ajustes pedidos no chat do painel ao vivo. */
+  notes: string
   /** Muda a cada captura feita pelo atalho; cada mudança dispara a geração automática. */
   autoGenerateSignal: number
-  onCaptureChange: (image: string | null) => void
+  onCapturesChange: (images: string[]) => void
   onOpenSettings: () => void
 }
 
-export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onOpenSettings }: Props) {
+export function GeneratePage({ captures, notes, autoGenerateSignal, onCapturesChange, onOpenSettings }: Props) {
+  const hasCapture = captures.length > 0
   const [jobText, setJobText] = useState('')
   const [busy, setBusy] = useState<'capture' | 'generate' | 'export' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -35,13 +39,13 @@ export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onO
   // Só a geração mais recente pode atualizar a tela: um novo atalho no meio de uma geração a substitui.
   const latestRequest = useRef(0)
 
-  async function generateFor(image: string | null, text: string) {
+  async function generateFor(images: string[], text: string) {
     const id = ++latestRequest.current
     setBusy('generate')
     setError(null)
     setSavedPath(null)
     try {
-      const generated = await window.guru.generate({ imageDataUrl: image, jobText: text })
+      const generated = await window.guru.generate({ images, jobText: text, notes })
       if (id === latestRequest.current) setResult(generated)
     } catch (e) {
       if (id === latestRequest.current) setError(errorMessage(e))
@@ -50,15 +54,15 @@ export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onO
     }
   }
 
-  const generate = () => generateFor(capture, jobText)
+  const generate = () => generateFor(captures, jobText)
 
   useEffect(() => {
-    if (autoGenerateSignal === 0 || !capture) return
+    if (autoGenerateSignal === 0 || !hasCapture) return
     // Captura nova pelo atalho é uma vaga nova: descarta o texto colado e o currículo anterior.
     setJobText('')
     setResult(null)
-    void generateFor(capture, '')
-    // Reage só ao sinal; capture chega na mesma renderização.
+    void generateFor(captures, '')
+    // Reage só ao sinal; os prints chegam na mesma renderização.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerateSignal])
 
@@ -87,28 +91,40 @@ export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onO
         <div className="card-head">
           <h2>Vaga</h2>
           <div className="actions">
-            {capture && (
-              <button className="ghost" onClick={() => onCaptureChange(null)} disabled={busy !== null}>
-                Remover captura
+            {hasCapture && (
+              <button className="ghost" onClick={() => onCapturesChange([])} disabled={busy !== null}>
+                {captures.length > 1 ? 'Remover prints' : 'Remover captura'}
               </button>
             )}
             <button onClick={captureNow} disabled={busy !== null}>
-              {busy === 'capture' ? 'Capturando…' : capture ? 'Capturar de novo' : 'Capturar tela'}
+              {busy === 'capture' ? 'Capturando…' : hasCapture ? 'Capturar de novo' : 'Capturar tela'}
             </button>
           </div>
         </div>
-        {capture && <img className="capture" src={capture} alt="Captura da tela com a vaga" />}
+        {captures.length === 1 && <img className="capture" src={captures[0]} alt="Captura da tela com a vaga" />}
+        {captures.length > 1 && (
+          <div className="capture-strip" aria-label={`${captures.length} prints da vaga`}>
+            {captures.map((image, i) => (
+              <img key={i} src={image} alt={`Print ${i + 1} da vaga`} />
+            ))}
+          </div>
+        )}
+        {notes && (
+          <p className="hint">
+            Ajustes pedidos no modo ao vivo entram na geração: <em>{notes}</em>
+          </p>
+        )}
         <label className="field">
           <span>Texto da vaga (opcional se houver captura)</span>
           <textarea
-            rows={capture ? 3 : 8}
+            rows={hasCapture ? 3 : 8}
             value={jobText}
             onChange={(e) => setJobText(e.target.value)}
             placeholder="Cole aqui a descrição da vaga. Útil quando ela não cabe em uma tela só."
           />
         </label>
         <div className="actions end">
-          <button className="primary" onClick={generate} disabled={busy !== null || (!capture && !jobText.trim())}>
+          <button className="primary" onClick={generate} disabled={busy !== null || (!hasCapture && !jobText.trim())}>
             {busy === 'generate' ? 'Gerando, pode levar um minuto…' : result ? 'Gerar de novo' : 'Gerar currículo'}
           </button>
         </div>

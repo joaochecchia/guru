@@ -60,7 +60,7 @@ export async function detectClaudeCode(refresh = false): Promise<ClaudeCodeStatu
  * Remove do ambiente a chave de API (senão o Claude Code cobraria da API em vez de usar a assinatura)
  * e as variáveis de uma sessão do Claude Code em andamento, que confundem o processo filho.
  */
-function cleanEnv(): NodeJS.ProcessEnv {
+export function cleanEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const key of Object.keys(env)) {
     if (
@@ -78,7 +78,7 @@ function cleanEnv(): NodeJS.ProcessEnv {
   return env
 }
 
-interface CliResult {
+export interface CliResult {
   type?: string
   subtype?: string
   is_error?: boolean
@@ -111,7 +111,7 @@ function spawnClaude(cliPath: string, args: string[], cwd: string, input: string
   })
 }
 
-function explainFailure(result: CliResult): string {
+export function explainFailure(result: CliResult): string {
   const text = result.result ?? ''
   if (/login|log in|api key|authenticat|credential/i.test(text)) {
     return 'O Claude Code não está logado. Abra um terminal, rode `claude` e entre com sua conta usando /login.'

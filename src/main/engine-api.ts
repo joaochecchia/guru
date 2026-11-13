@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import type { AiModel } from '../shared/types'
 import type { Part, Task } from './engine'
 
-const API_MODELS: Record<AiModel, string> = {
+const API_MODELS: Record<'opus' | 'sonnet', string> = {
   opus: 'claude-opus-5-5',
   sonnet: 'claude-sonnet-5-5'
 }
@@ -28,7 +28,7 @@ export async function runWithApi<S extends z.ZodType>(apiKey: string, model: AiM
 
   try {
     const response = await client.beta.messages.parse({
-      model: API_MODELS[model],
+      model: API_MODELS[model as 'opus' | 'sonnet'],
       max_tokens: 16000,
       output_config: { effort: 'medium', format: betaZodOutputFormat(task.schema) },
       // Se o modelo principal recusar o pedido, a API tenta de novo em um modelo alternativo.

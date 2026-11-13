@@ -247,12 +247,17 @@ export interface GithubAnalysisResult {
 
 // ---------- Contratos de IPC ----------
 
-/** Onde o Claude roda: pela API (chave) ou pelo Claude Code instalado (assinatura, experimental). */
-export type AiEngine = 'api' | 'claude-code'
-/** opus: melhor qualidade. sonnet: metade do custo na API. */
-export type AiModel = 'opus' | 'sonnet'
+/** Provedor e forma de execução da IA. */
+export type AiEngine = 'anthropic-api' | 'claude-code' | 'openai-api' | 'codex'
+export type AiModel = 'opus' | 'sonnet' | 'gpt-6.1-sol' | 'gpt-6.1-terra' | 'gpt-6-luna' | 'gpt-6-astra' | 'codex-default'
 
 export interface ClaudeCodeStatus {
+  found: boolean
+  path: string | null
+  version: string | null
+}
+
+export interface CodexStatus {
   found: boolean
   path: string | null
   version: string | null
@@ -262,25 +267,68 @@ export interface SettingsInfo {
   engine: AiEngine
   model: AiModel
   claudeCode: ClaudeCodeStatus
-  hasApiKey: boolean
-  apiKeySource: 'stored' | 'env' | 'none'
+  codex: CodexStatus
+  hasAnthropicApiKey: boolean
+  anthropicApiKeySource: 'stored' | 'env' | 'none'
+  hasOpenAiApiKey: boolean
+  openAiApiKeySource: 'stored' | 'env' | 'none'
   shortcut: string
   shortcutRegistered: boolean
   shortcutError: string | null
   /** true quando o atalho é criado nas configurações de teclado do sistema (GNOME com Wayland). */
   shortcutViaSystem: boolean
+  /** Atalho do modo ao vivo (painel com sugestões em tempo real). */
+  liveShortcut: string
   wayland: boolean
 }
 
 export interface CaptureEvent {
-  image: string
-  /** true quando a captura veio do atalho ou da bandeja: a geração começa sozinha. */
+  /** Um print (atalho de captura) ou vários (leitura completa enviada pelo painel ao vivo). */
+  images: string[]
+  /** true quando a captura veio do atalho, da bandeja ou do painel: a geração começa sozinha. */
   autoGenerate: boolean
+  /** Ajustes que a pessoa pediu no chat do painel, para o PDF já sair com eles. */
+  notes?: string
 }
 
 export interface GenerateRequest {
-  imageDataUrl: string | null
+  images: string[]
   jobText: string
+  notes?: string
+}
+
+// ---------- Modo ao vivo ----------
+
+/** Um turno da conversa do painel. Prints vão como data URLs JPEG. */
+export interface LiveTurn {
+  role: 'user' | 'assistant'
+  text: string
+  images?: string[]
+}
+
+export interface LiveRequest {
+  requestId: string
+  turns: LiveTurn[]
+}
+
+export type LiveEvent = { requestId: string } & (
+  | { kind: 'thinking'; text: string }
+  | { kind: 'text'; text: string }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string }
+)
+
+export interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Posição do painel e da tela, para o painel esconder a si mesmo nos prints. */
+export interface PanelGeometry {
+  panel: Rect
+  display: Rect
 }
 
 export interface GenerateResult {
@@ -292,11 +340,12 @@ export interface GuruApi {
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
   getSettings(): Promise<SettingsInfo>
-  setApiKey(key: string): Promise<SettingsInfo>
+  setApiKey(provider: 'anthropic' | 'openai', key: string): Promise<SettingsInfo>
   setShortcut(accelerator: string): Promise<SettingsInfo>
   setAi(choice: { engine?: AiEngine; model?: AiModel }): Promise<SettingsInfo>
   /** Procura o Claude Code de novo (depois de instalar, por exemplo). */
   detectClaudeCode(): Promise<SettingsInfo>
+  detectCodex(): Promise<SettingsInfo>
   captureNow(): Promise<string>
   onCapture(callback: (capture: CaptureEvent) => void): () => void
   generate(request: GenerateRequest): Promise<GenerateResult>
@@ -306,4 +355,17 @@ export interface GuruApi {
   getGithubCatalog(): Promise<GithubCatalog | null>
   /** Abre o seletor de arquivo e devolve o que o Claude extraiu, ou null se a pessoa cancelar. */
   importResumeFile(): Promise<ProfileImport | null>
+
+  // Modo ao vivo (usado pela janela do painel)
+  setLiveShortcut(accelerator: string): Promise<SettingsInfo>
+  /** Executa um turno com streaming; o texto chega por onLiveEvent. Resolve quando termina. */
+  liveRun(request: LiveRequest): Promise<void>
+  liveCancel(requestId: string): void
+  onLiveEvent(callback: (event: LiveEvent) => void): () => void
+  /** O processo principal pede ao painel para começar a observar (atalho ou bandeja). */
+  onPanelStart(callback: () => void): () => void
+  panelGeometry(): Promise<PanelGeometry>
+  closePanel(): void
+  /** Abre a janela principal gerando o PDF a partir dos prints e ajustes do painel. */
+  sendToResume(images: string[], notes: string): void
 }

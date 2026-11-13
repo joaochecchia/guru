@@ -10,14 +10,16 @@ const LEGACY_DEFAULT_SHORTCUT = 'CommandOrControl+Shift+G'
 interface SettingsFile {
   shortcut: string
   apiKeyEncrypted: string | null
+  openAiApiKeyEncrypted?: string | null
   engine: AiEngine
   model: AiModel
+  liveShortcut?: string
 }
 
 const DEFAULT_SETTINGS: SettingsFile = {
   shortcut: DEFAULT_SHORTCUT,
   apiKeyEncrypted: null,
-  engine: 'api',
+  engine: 'anthropic-api',
   model: 'opus'
 }
 
@@ -70,14 +72,26 @@ export function getShortcut(): string {
 
 export function getAi(): { engine: AiEngine; model: AiModel } {
   const { engine, model } = getSettings()
+  const validEngines: AiEngine[] = ['anthropic-api', 'claude-code', 'openai-api', 'codex']
+  const validModels: AiModel[] = ['opus', 'sonnet', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna', 'gpt-6-astra', 'codex-default']
   return {
-    engine: engine === 'claude-code' ? 'claude-code' : 'api',
-    model: model === 'sonnet' ? 'sonnet' : 'opus'
+    engine: validEngines.includes(engine) ? engine : 'anthropic-api',
+    model: validModels.includes(model) ? model : 'opus'
   }
 }
 
 export function setAi(choice: { engine?: AiEngine; model?: AiModel }): void {
   writeJson('settings.json', { ...getSettings(), ...getAi(), ...choice })
+}
+
+export const DEFAULT_LIVE_SHORTCUT = 'CommandOrControl+Alt+Y'
+
+export function getLiveShortcut(): string {
+  return getSettings().liveShortcut || DEFAULT_LIVE_SHORTCUT
+}
+
+export function setLiveShortcut(liveShortcut: string): void {
+  writeJson('settings.json', { ...getSettings(), liveShortcut })
 }
 
 export function setShortcut(shortcut: string): void {
@@ -98,32 +112,44 @@ async function encrypt(plain: string): Promise<string> {
   return (await safeStorage.encryptStringAsync(plain)).toString('base64')
 }
 
-export async function setApiKey(key: string): Promise<void> {
+export async function setApiKey(provider: 'anthropic' | 'openai', key: string): Promise<void> {
   const trimmed = key.trim()
   if (!trimmed) {
-    writeJson('settings.json', { ...getSettings(), apiKeyEncrypted: null })
+    writeJson('settings.json', provider === 'anthropic'
+      ? { ...getSettings(), apiKeyEncrypted: null }
+      : { ...getSettings(), openAiApiKeyEncrypted: null })
     return
   }
   if (!(await canEncrypt())) {
     throw new Error(
       'O sistema não tem um cofre de senhas disponível para guardar a chave com segurança. ' +
-        'Defina a variável de ambiente ANTHROPIC_API_KEY antes de abrir o app.'
+        `Defina a variável de ambiente ${provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'} antes de abrir o app.`
     )
   }
-  writeJson('settings.json', { ...getSettings(), apiKeyEncrypted: await encrypt(trimmed) })
+  const encrypted = await encrypt(trimmed)
+  writeJson('settings.json', provider === 'anthropic'
+    ? { ...getSettings(), apiKeyEncrypted: encrypted }
+    : { ...getSettings(), openAiApiKeyEncrypted: encrypted })
 }
 
-export async function getApiKey(): Promise<{ key: string | null; source: 'stored' | 'env' | 'none' }> {
+export async function getApiKey(provider: 'anthropic' | 'openai'): Promise<{ key: string | null; source: 'stored' | 'env' | 'none' }> {
   const { apiKeyEncrypted } = getSettings()
-  if (apiKeyEncrypted) {
+  const settings = getSettings()
+  const encrypted = provider === 'anthropic' ? apiKeyEncrypted : settings.openAiApiKeyEncrypted
+  if (encrypted) {
     try {
-      const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(Buffer.from(apiKeyEncrypted, 'base64'))
-      if (shouldReEncrypt) writeJson('settings.json', { ...getSettings(), apiKeyEncrypted: await encrypt(result) })
+      const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(Buffer.from(encrypted, 'base64'))
+      if (shouldReEncrypt) {
+        const replacement = await encrypt(result)
+        writeJson('settings.json', provider === 'anthropic'
+          ? { ...getSettings(), apiKeyEncrypted: replacement }
+          : { ...getSettings(), openAiApiKeyEncrypted: replacement })
+      }
       return { key: result, source: 'stored' }
     } catch {
       // Cofre indisponível ou chave gravada em outra máquina: cai para a variável de ambiente.
     }
   }
-  const env = process.env.ANTHROPIC_API_KEY
+  const env = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY
   return env ? { key: env, source: 'env' } : { key: null, source: 'none' }
 }
