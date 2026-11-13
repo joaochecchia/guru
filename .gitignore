@@ -1,0 +1,51 @@
+# ---------- Segredos ----------
+# Variáveis de ambiente com chaves. Só o modelo (.env.example) vai para o repositório.
+.env
+.env.*
+!.env.example
+*.env
+# Chaves e certificados soltos
+*.pem
+*.key
+*.p12
+*.pfx
+# Certificados de assinatura de código (instaladores Windows/macOS)
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+
+# ---------- Dados pessoais ----------
+# O app guarda perfil e configurações fora do repositório (~/.config/guru no Linux).
+# Estas regras evitam que uma cópia deles, ou currículos de teste, sejam commitados por engano.
+profile.json
+settings.json
+*.pdf
+*.docx
+*.doc
+*.odt
+/curriculos/
+
+# ---------- Dependências e builds ----------
+node_modules/
+out/
+dist/
+release/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# ---------- Temporários e logs ----------
+*.log
+npm-debug.log*
+*.tmp
+*.swp
+*~
+
+# ---------- Sistema e editores ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
