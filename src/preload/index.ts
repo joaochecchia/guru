@@ -15,7 +15,8 @@ const api: GuruApi = {
   },
   generate: (request) => ipcRenderer.invoke('resume:generate', request),
   exportPdf: (html, suggestedName) => ipcRenderer.invoke('resume:exportPdf', html, suggestedName),
-  importGithub: (username) => ipcRenderer.invoke('github:import', username),
+  analyzeGithub: (username, profile) => ipcRenderer.invoke('github:analyze', username, profile),
+  getGithubCatalog: () => ipcRenderer.invoke('github:catalog'),
   importResumeFile: () => ipcRenderer.invoke('profile:importResumeFile')
 }
 

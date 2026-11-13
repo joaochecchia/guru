@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { mergeImportedProfile, type MergeSummary } from '../../shared/merge'
 import type { Course, Education, Experience, Language, Personal, Profile, Project } from '../../shared/types'
+import { GithubPanel } from './GithubPanel'
 import { errorMessage, newId } from './util'
 
 function describeImport(added: MergeSummary): string[] {
@@ -146,7 +147,6 @@ const LANGUAGE_FIELDS: FieldDef<Language>[] = [
 export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [status, setStatus] = useState<string>('')
-  const [importing, setImporting] = useState(false)
   const [importingResume, setImportingResume] = useState(false)
   const [importReport, setImportReport] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const dirty = useRef(false)
@@ -176,22 +176,6 @@ export function ProfilePage() {
     dirty.current = true
     setStatus('Salvando…')
     setProfile({ ...profile, ...patch })
-  }
-
-  async function importGithub() {
-    if (!profile) return
-    setImporting(true)
-    try {
-      const repos = await window.guru.importGithub(profile.personal.github)
-      const known = new Set(profile.projects.map((p) => p.url))
-      const fresh = repos.filter((repo) => !known.has(repo.url))
-      update({ projects: [...profile.projects, ...fresh] })
-      setStatus(fresh.length ? `${fresh.length} projeto(s) importado(s) do GitHub` : 'Nenhum projeto novo no GitHub')
-    } catch (e) {
-      setStatus(errorMessage(e))
-    } finally {
-      setImporting(false)
-    }
   }
 
   async function importResume() {
@@ -267,6 +251,15 @@ export function ProfilePage() {
         </div>
       </section>
 
+      <GithubPanel
+        profile={profile}
+        onApply={(next) => {
+          dirty.current = true
+          setStatus('Salvando…')
+          setProfile(next)
+        }}
+      />
+
       <section className="card">
         <h2>Resumo profissional</h2>
         <Field
@@ -305,11 +298,6 @@ export function ProfilePage() {
         items={profile.projects}
         fields={PROJECT_FIELDS}
         onChange={(projects) => update({ projects })}
-        extraAction={
-          <button onClick={importGithub} disabled={importing || !profile.personal.github.trim()}>
-            {importing ? 'Importando…' : 'Importar do GitHub'}
-          </button>
-        }
       />
 
       <section className="card">

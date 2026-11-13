@@ -1,4 +1,57 @@
-import type { Personal, Profile, ProfileImport } from './types'
+import type { GithubSuggestions, Personal, Profile, ProfileImport } from './types'
+
+/** Índices das sugestões que a pessoa marcou para aplicar. */
+export interface GithubSelection {
+  newProjects: Set<number>
+  projectUpdates: Set<number>
+  newSkills: Set<number>
+}
+
+/** Aplica as sugestões do GitHub selecionadas. Projetos com o mesmo link não são duplicados. */
+export function applyGithubSuggestions(
+  profile: Profile,
+  suggestions: GithubSuggestions,
+  selection: GithubSelection,
+  newId: () => string
+): Profile {
+  const updates = new Map(
+    suggestions.projectUpdates.filter((_, i) => selection.projectUpdates.has(i)).map((u) => [u.projectId, u])
+  )
+  const projects = profile.projects.map((project) => {
+    const update = updates.get(project.id)
+    if (!update) return project
+    return {
+      ...project,
+      description: update.description.trim() || project.description,
+      technologies: update.technologies.trim() || project.technologies,
+      url: project.url.trim() || update.url
+    }
+  })
+
+  const knownUrls = new Set(projects.map((p) => norm(p.url)).filter(Boolean))
+  for (const [i, suggestion] of suggestions.newProjects.entries()) {
+    if (!selection.newProjects.has(i) || knownUrls.has(norm(suggestion.url))) continue
+    knownUrls.add(norm(suggestion.url))
+    projects.push({
+      id: newId(),
+      name: suggestion.name,
+      description: suggestion.description,
+      technologies: suggestion.technologies,
+      url: suggestion.url
+    })
+  }
+
+  const currentSkills = profile.skills.split(',').map((s) => s.trim()).filter(Boolean)
+  const knownSkills = new Set(currentSkills.map(norm))
+  for (const [i, { skill }] of suggestions.newSkills.entries()) {
+    const clean = skill.trim()
+    if (!selection.newSkills.has(i) || !clean || knownSkills.has(norm(clean))) continue
+    knownSkills.add(norm(clean))
+    currentSkills.push(clean)
+  }
+
+  return { ...profile, projects, skills: currentSkills.join(', ') }
+}
 
 export interface MergeSummary {
   personal: number

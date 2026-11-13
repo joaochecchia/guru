@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import { emptyProfile, type Profile } from '../shared/types'
+import { emptyProfile, type GithubCatalog, type Profile } from '../shared/types'
 
 export const DEFAULT_SHORTCUT = 'CommandOrControl+Y'
 /** Padrão anterior, trocado porque o Ctrl+Shift+G já é usado pelos navegadores (busca anterior). */
@@ -39,6 +39,15 @@ export function getProfile(): Profile {
 
 export function saveProfile(profile: Profile): void {
   writeJson('profile.json', profile)
+}
+
+export function getGithubCatalog(): GithubCatalog | null {
+  const catalog = readJson<GithubCatalog | null>('github.json', null)
+  return catalog && Array.isArray(catalog.repos) ? catalog : null
+}
+
+export function saveGithubCatalog(catalog: GithubCatalog): void {
+  writeJson('github.json', catalog)
 }
 
 function getSettings(): SettingsFile {

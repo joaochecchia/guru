@@ -1,11 +1,19 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { CaptureEvent, GenerateRequest, GenerateResult, Profile, SettingsInfo } from '../shared/types'
+import type {
+  CaptureEvent,
+  GenerateRequest,
+  GenerateResult,
+  GithubAnalysisResult,
+  GithubCatalog,
+  Profile,
+  SettingsInfo
+} from '../shared/types'
 import { captureScreen } from './capture'
-import { extractProfile, generateResume } from './claude'
+import { analyzeGithubRepos, extractProfile, generateResume } from './claude'
 import { installGnomeShortcut, isGnomeWayland } from './gnome-shortcut'
-import { importGithubProjects } from './github'
+import { fetchGithubRepos } from './github'
 import { htmlToPdf, renderResumeHtml } from './pdf'
 import { readResumeFile, RESUME_FILE_EXTENSIONS } from './resume-file'
 import * as store from './store'
@@ -207,7 +215,7 @@ function registerIpc(): void {
       throw new Error('Capture a tela da vaga ou cole o texto dela.')
     }
     const profile = store.getProfile()
-    const resume = await generateResume(key, profile, request)
+    const resume = await generateResume(key, profile, request, store.getGithubCatalog())
     return { resume, html: renderResumeHtml(resume, profile.personal) }
   })
 
@@ -223,7 +231,53 @@ function registerIpc(): void {
     return result.filePath
   })
 
-  ipcMain.handle('github:import', (_event, username: string) => importGithubProjects(username))
+  ipcMain.handle('github:catalog', () => store.getGithubCatalog())
+
+  ipcMain.handle('github:analyze', async (_event, username: string, profile: Profile): Promise<GithubAnalysisResult> => {
+    const { key } = await store.getApiKey()
+    if (!key) throw new Error('Cadastre sua chave de API da Anthropic em Configurações.')
+    const fetched = await fetchGithubRepos(username)
+    const analysis = await analyzeGithubRepos(key, profile, fetched.repos)
+
+    // Links e metadados vêm do GitHub, nunca do texto do modelo; sugestões sem repositório real são descartadas.
+    const byName = new Map(fetched.repos.map((repo) => [repo.name.toLowerCase(), repo]))
+    const repoOf = (name: string) => byName.get(name.trim().toLowerCase())
+    const projectIds = new Set(profile.projects.map((p) => p.id))
+    const knownSkills = new Set(profile.skills.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
+
+    const catalog: GithubCatalog = {
+      username: fetched.username,
+      syncedAt: new Date().toISOString(),
+      repos: fetched.repos.map((repo) => {
+        const analyzed = analysis.repos.find((r) => r.name.toLowerCase() === repo.name.toLowerCase())
+        return {
+          name: repo.name,
+          url: repo.url,
+          summary: analyzed?.summary || repo.description,
+          technologies: analyzed?.technologies || [repo.language, ...repo.topics].filter(Boolean).join(', '),
+          stars: repo.stars,
+          pushedAt: repo.pushedAt
+        }
+      })
+    }
+    store.saveGithubCatalog(catalog)
+
+    return {
+      catalog,
+      suggestions: {
+        newProjects: analysis.newProjects.flatMap((p) => {
+          const repo = repoOf(p.repo)
+          return repo ? [{ ...p, url: repo.url }] : []
+        }),
+        projectUpdates: analysis.projectUpdates.flatMap((u) => {
+          const repo = repoOf(u.repo)
+          return repo && projectIds.has(u.projectId) ? [{ ...u, url: repo.url }] : []
+        }),
+        newSkills: analysis.newSkills.filter((s) => s.skill.trim() && !knownSkills.has(s.skill.trim().toLowerCase())),
+        experienceNotes: analysis.experienceNotes
+      }
+    }
+  })
 
   ipcMain.handle('profile:importResumeFile', async () => {
     const { key } = await store.getApiKey()

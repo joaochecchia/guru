@@ -8,7 +8,7 @@ Assistente de candidaturas para desktop. Com a vaga aberta na tela, você aperta
 
 1. Em **Meu perfil** você cadastra uma vez tudo o que já fez: experiências, formação, cursos, projetos, habilidades e idiomas. Quanto mais detalhe, melhor: o Claude escolhe o que serve para cada vaga. Para começar mais rápido:
    - **Importar currículo existente**: envie o currículo que você já tem (PDF, DOCX, imagem ou TXT) e o Claude preenche os campos. Nada que já está cadastrado é apagado: só entram campos vazios e itens novos.
-   - **Importar do GitHub**: traz seus repositórios públicos como projetos.
+   - **GitHub**: o Claude lê seus repositórios e READMEs e sugere projetos que faltam no perfil, dados incompletos em projetos já cadastrados e habilidades não listadas. Você revisa e aplica só o que quiser. O resumo de cada repositório fica salvo e, ao gerar um currículo, o Claude pode usar um repositório relevante para a vaga mesmo que ele não esteja no perfil.
 2. Com a vaga aberta no navegador, aperte **Ctrl+Y**. O Guru captura o monitor onde está o mouse, abre com a captura e já começa a gerar o currículo. O atalho pode ser trocado em Configurações.
 3. O Claude lê a vaga, seleciona e reescreve o conteúdo do seu perfil no idioma e no vocabulário da vaga.
 4. Revise a prévia (dá para editar o texto clicando nele) e exporte o PDF.
@@ -20,6 +20,7 @@ O Guru avisa quais requisitos da vaga o seu perfil não cobre, em vez de inventa
 - O perfil fica em um arquivo JSON na pasta de dados do app, só no seu computador (`~/.config/guru` no Linux).
 - Ao gerar um currículo, vão para o Claude apenas a captura da vaga e o conteúdo profissional do perfil. Nome, e-mail, telefone e links são inseridos no PDF localmente.
 - Ao importar um currículo existente, o arquivo vai inteiro para o Claude, incluindo os dados de contato que estiverem nele, porque é assim que ele preenche os dados pessoais.
+- Na análise do GitHub, vão para o Claude os metadados e o README (truncado) dos 30 repositórios mais recentes. Sem token, só os públicos; com `GITHUB_TOKEN`, os privados também. O código-fonte não é enviado.
 - A chave de API é guardada criptografada no cofre de senhas do sistema (via `safeStorage` do Electron).
 
 ## Requisitos
@@ -49,7 +50,7 @@ cp .env.example .env
 | Variável | Para que serve |
 |---|---|
 | `ANTHROPIC_API_KEY` | Alternativa a cadastrar a chave em Configurações. A chave salva em Configurações tem prioridade. |
-| `GITHUB_TOKEN` | Opcional. Aumenta o limite da importação de projetos do GitHub de 60 para 5.000 requisições por hora. Um token fine-grained sem permissões extras basta. |
+| `GITHUB_TOKEN` | Opcional. Inclui seus repositórios privados na análise do GitHub. Sem ele, só os públicos são lidos. |
 
 Variáveis já definidas no terminal têm prioridade sobre o `.env`. O app empacotado não lê `.env`.
 
@@ -95,7 +96,7 @@ src/
     claude.ts    chamadas ao Claude com saída estruturada (gerar currículo, importar perfil)
     resume-file.ts  leitura do currículo importado (PDF, DOCX, imagem, TXT)
     pdf.ts       template HTML do currículo e exportação para PDF
-    github.ts    importação de repositórios públicos
+    github.ts    busca de repositórios e READMEs no GitHub
     store.ts     perfil e configurações em disco
   preload/       ponte segura entre a interface e o processo principal
   renderer/      interface em React
@@ -108,13 +109,13 @@ src/
 - [x] Atalho global e captura de tela
 - [x] Currículo sob medida via Claude, com aviso de requisitos não cobertos
 - [x] Prévia editável e exportação em PDF
-- [x] Importação de projetos públicos do GitHub
+- [x] Análise dos repositórios do GitHub com sugestões para o perfil e catálogo usado na geração
+- [ ] Login com GitHub (OAuth) em vez de token no `.env`
 - [x] Importação de currículo existente (PDF, DOCX, imagem, TXT) para preencher o perfil
 - [ ] Histórico de candidaturas (vaga, data, PDF gerado, status)
 - [ ] Mais templates de currículo
 - [ ] Modo formulário: ler os campos de sites como a Gupy e sugerir o texto de cada um para copiar
 - [ ] Extensão de navegador para preencher os formulários automaticamente
-- [ ] Login com GitHub (OAuth) para incluir repositórios privados
 - [ ] Instaladores para Linux e Windows; depois macOS
   - No Linux, o pacote precisa configurar o sandbox do Chromium (perfil do AppArmor ou `chrome-sandbox` com SUID). Em desenvolvimento o atalho do GNOME usa `--no-sandbox` para contornar isso.
 

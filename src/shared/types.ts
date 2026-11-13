@@ -156,6 +156,95 @@ export const ProfileImportSchema = z.object({
 
 export type ProfileImport = z.infer<typeof ProfileImportSchema>
 
+// ---------- GitHub ----------
+
+/** Repositório como vem do GitHub, com README truncado. Vai para o Claude na análise. */
+export interface GithubRepoInfo {
+  name: string
+  url: string
+  description: string
+  homepage: string
+  language: string
+  topics: string[]
+  stars: number
+  pushedAt: string
+  private: boolean
+  readme: string
+}
+
+export const GithubAnalysisSchema = z.object({
+  repos: z
+    .array(
+      z.object({
+        name: z.string().describe('Nome exato do repositório recebido'),
+        summary: z.string().describe('1 ou 2 frases factuais sobre o que o projeto é e faz'),
+        technologies: z.string().describe('Tecnologias principais, separadas por vírgula')
+      })
+    )
+    .describe('Um item por repositório recebido, inclusive os triviais'),
+  newProjects: z.array(
+    z.object({
+      repo: z.string().describe('Nome exato do repositório'),
+      name: z.string().describe('Nome do projeto como deve aparecer no currículo'),
+      description: z.string().describe('Descrição pronta para currículo, 1 a 3 frases'),
+      technologies: z.string(),
+      reason: z.string().describe('Por que vale incluir, em uma frase curta')
+    })
+  ),
+  projectUpdates: z.array(
+    z.object({
+      projectId: z.string().describe('id do projeto já cadastrado no perfil'),
+      repo: z.string().describe('Nome exato do repositório correspondente'),
+      description: z.string().describe('Descrição completa melhorada, não só o trecho novo'),
+      technologies: z.string().describe('Lista completa de tecnologias'),
+      reason: z.string().describe('O que estava faltando, em uma frase curta')
+    })
+  ),
+  newSkills: z.array(
+    z.object({
+      skill: z.string(),
+      evidence: z.string().describe('Repositório(s) onde aparece')
+    })
+  ),
+  experienceNotes: z.array(
+    z.object({
+      experience: z.string().describe('Cargo e empresa da experiência cadastrada'),
+      note: z.string().describe('O que o repositório sugere que poderia ser acrescentado')
+    })
+  )
+})
+
+export type GithubAnalysis = z.infer<typeof GithubAnalysisSchema>
+
+export interface GithubCatalogEntry {
+  name: string
+  url: string
+  summary: string
+  technologies: string
+  stars: number
+  pushedAt: string
+}
+
+/** Resumo dos repositórios, salvo localmente e usado na geração de currículos. */
+export interface GithubCatalog {
+  username: string
+  syncedAt: string
+  repos: GithubCatalogEntry[]
+}
+
+/** Sugestões já resolvidas: links vêm do GitHub, nunca do modelo. */
+export interface GithubSuggestions {
+  newProjects: (GithubAnalysis['newProjects'][number] & { url: string })[]
+  projectUpdates: (GithubAnalysis['projectUpdates'][number] & { url: string })[]
+  newSkills: GithubAnalysis['newSkills']
+  experienceNotes: GithubAnalysis['experienceNotes']
+}
+
+export interface GithubAnalysisResult {
+  catalog: GithubCatalog
+  suggestions: GithubSuggestions
+}
+
 // ---------- Contratos de IPC ----------
 
 export interface SettingsInfo {
@@ -195,7 +284,9 @@ export interface GuruApi {
   onCapture(callback: (capture: CaptureEvent) => void): () => void
   generate(request: GenerateRequest): Promise<GenerateResult>
   exportPdf(html: string, suggestedName: string): Promise<string | null>
-  importGithub(username: string): Promise<Project[]>
+  /** Busca os repositórios, pede ao Claude o catálogo e as sugestões, e salva o catálogo. */
+  analyzeGithub(username: string, profile: Profile): Promise<GithubAnalysisResult>
+  getGithubCatalog(): Promise<GithubCatalog | null>
   /** Abre o seletor de arquivo e devolve o que o Claude extraiu, ou null se a pessoa cancelar. */
   importResumeFile(): Promise<ProfileImport | null>
 }

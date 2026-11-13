@@ -350,3 +350,60 @@ code {
 a {
   color: var(--accent);
 }
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.suggestions h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.suggestions ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.suggestion {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.suggestion + .suggestion {
+  border-top: 1px dashed var(--border);
+}
+
+.suggestion input,
+.chip input {
+  width: auto;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px 3px 8px;
+  cursor: pointer;
+}
+
+.chip input {
+  margin-top: 0;
+}
