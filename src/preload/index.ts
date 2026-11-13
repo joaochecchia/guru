@@ -7,6 +7,8 @@ const api: GuruApi = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setApiKey: (key) => ipcRenderer.invoke('settings:setApiKey', key),
   setShortcut: (accelerator) => ipcRenderer.invoke('settings:setShortcut', accelerator),
+  setAi: (choice) => ipcRenderer.invoke('settings:setAi', choice),
+  detectClaudeCode: () => ipcRenderer.invoke('settings:detectClaudeCode'),
   captureNow: () => ipcRenderer.invoke('capture:now'),
   onCapture: (callback) => {
     const listener = (_event: IpcRendererEvent, capture: CaptureEvent) => callback(capture)

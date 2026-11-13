@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import { emptyProfile, type GithubCatalog, type Profile } from '../shared/types'
+import { emptyProfile, type AiEngine, type AiModel, type GithubCatalog, type Profile } from '../shared/types'
 
 export const DEFAULT_SHORTCUT = 'CommandOrControl+Y'
 /** Padrão anterior, trocado porque o Ctrl+Shift+G já é usado pelos navegadores (busca anterior). */
@@ -10,6 +10,15 @@ const LEGACY_DEFAULT_SHORTCUT = 'CommandOrControl+Shift+G'
 interface SettingsFile {
   shortcut: string
   apiKeyEncrypted: string | null
+  engine: AiEngine
+  model: AiModel
+}
+
+const DEFAULT_SETTINGS: SettingsFile = {
+  shortcut: DEFAULT_SHORTCUT,
+  apiKeyEncrypted: null,
+  engine: 'api',
+  model: 'opus'
 }
 
 function file(name: string): string {
@@ -51,12 +60,24 @@ export function saveGithubCatalog(catalog: GithubCatalog): void {
 }
 
 function getSettings(): SettingsFile {
-  return readJson<SettingsFile>('settings.json', { shortcut: DEFAULT_SHORTCUT, apiKeyEncrypted: null })
+  return readJson<SettingsFile>('settings.json', DEFAULT_SETTINGS)
 }
 
 export function getShortcut(): string {
   const { shortcut } = getSettings()
   return !shortcut || shortcut === LEGACY_DEFAULT_SHORTCUT ? DEFAULT_SHORTCUT : shortcut
+}
+
+export function getAi(): { engine: AiEngine; model: AiModel } {
+  const { engine, model } = getSettings()
+  return {
+    engine: engine === 'claude-code' ? 'claude-code' : 'api',
+    model: model === 'sonnet' ? 'sonnet' : 'opus'
+  }
+}
+
+export function setAi(choice: { engine?: AiEngine; model?: AiModel }): void {
+  writeJson('settings.json', { ...getSettings(), ...getAi(), ...choice })
 }
 
 export function setShortcut(shortcut: string): void {

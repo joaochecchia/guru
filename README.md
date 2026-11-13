@@ -15,6 +15,21 @@ Assistente de candidaturas para desktop. Com a vaga aberta na tela, você aperta
 
 O Guru avisa quais requisitos da vaga o seu perfil não cobre, em vez de inventar experiência para preenchê-los.
 
+## Motor de IA
+
+Em **Configurações → Motor de IA** você escolhe como o Claude roda:
+
+| Motor | Custo | Observações |
+|---|---|---|
+| **API da Anthropic** (padrão) | Por uso, na sua conta da API | Mais rápido, formato da resposta garantido pelo servidor. |
+| **Claude Code com sua assinatura** (experimental) | Conta no limite de uso da assinatura Pro ou Max | Precisa do [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) instalado e logado neste computador. |
+
+E o modelo: **Opus** (melhor qualidade) ou **Sonnet** (metade do custo na API e mais rápido).
+
+Como funciona o modo Claude Code: o app grava o print ou o arquivo numa pasta temporária, executa `claude -p` nela e apaga a pasta ao final. O Claude Code roda em modo restrito (`--restricted --tools Read`): só lê arquivos dessa pasta, não executa comandos e ignora suas configurações pessoais. A chave de API não é repassada a ele, para que o uso conte na assinatura.
+
+> **Termos de uso:** a Anthropic restringe o uso de assinaturas do claude.ai por produtos de terceiros. O modo Claude Code existe para uso pessoal, com o Claude Code e a conta da própria pessoa. Na dúvida, use a API. No Windows, por enquanto, ele só funciona com o instalador nativo do Claude Code (`claude.exe`).
+
 ## Privacidade
 
 - O perfil fica em um arquivo JSON na pasta de dados do app, só no seu computador (`~/.config/guru` no Linux).
@@ -93,7 +108,8 @@ src/
   main/          processo principal do Electron
     index.ts     janela, bandeja, atalho global e IPC
     capture.ts   captura de tela
-    claude.ts    chamadas ao Claude com saída estruturada (gerar currículo, importar perfil)
+    claude.ts    prompts e tarefas (gerar currículo, importar perfil, analisar GitHub)
+    engine*.ts   motores de IA: API da Anthropic ou Claude Code (claude -p)
     resume-file.ts  leitura do currículo importado (PDF, DOCX, imagem, TXT)
     pdf.ts       template HTML do currículo e exportação para PDF
     github.ts    busca de repositórios e READMEs no GitHub
@@ -113,6 +129,7 @@ src/
 - [ ] Login com GitHub (OAuth) em vez de token no `.env`
 - [x] Importação de currículo existente (PDF, DOCX, imagem, TXT) para preencher o perfil
 - [ ] Histórico de candidaturas (vaga, data, PDF gerado, status)
+- [x] Motor alternativo pelo Claude Code com a assinatura (experimental) e escolha entre Opus e Sonnet
 - [ ] Mais templates de currículo
 - [ ] Modo formulário: ler os campos de sites como a Gupy e sugerir o texto de cada um para copiar
 - [ ] Extensão de navegador para preencher os formulários automaticamente

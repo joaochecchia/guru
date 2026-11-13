@@ -247,7 +247,21 @@ export interface GithubAnalysisResult {
 
 // ---------- Contratos de IPC ----------
 
+/** Onde o Claude roda: pela API (chave) ou pelo Claude Code instalado (assinatura, experimental). */
+export type AiEngine = 'api' | 'claude-code'
+/** opus: melhor qualidade. sonnet: metade do custo na API. */
+export type AiModel = 'opus' | 'sonnet'
+
+export interface ClaudeCodeStatus {
+  found: boolean
+  path: string | null
+  version: string | null
+}
+
 export interface SettingsInfo {
+  engine: AiEngine
+  model: AiModel
+  claudeCode: ClaudeCodeStatus
   hasApiKey: boolean
   apiKeySource: 'stored' | 'env' | 'none'
   shortcut: string
@@ -280,6 +294,9 @@ export interface GuruApi {
   getSettings(): Promise<SettingsInfo>
   setApiKey(key: string): Promise<SettingsInfo>
   setShortcut(accelerator: string): Promise<SettingsInfo>
+  setAi(choice: { engine?: AiEngine; model?: AiModel }): Promise<SettingsInfo>
+  /** Procura o Claude Code de novo (depois de instalar, por exemplo). */
+  detectClaudeCode(): Promise<SettingsInfo>
   captureNow(): Promise<string>
   onCapture(callback: (capture: CaptureEvent) => void): () => void
   generate(request: GenerateRequest): Promise<GenerateResult>

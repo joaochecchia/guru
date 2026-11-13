@@ -1,6 +1,6 @@
-import type Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { Part } from './engine'
 
 export const RESUME_FILE_EXTENSIONS = ['pdf', 'docx', 'png', 'jpg', 'jpeg', 'webp', 'txt', 'md']
 
@@ -13,21 +13,20 @@ const IMAGE_TYPES = {
   '.webp': 'image/webp'
 } as const
 
-/** Converte o arquivo do currículo em um bloco de conteúdo que o Claude consegue ler. */
-export async function readResumeFile(filePath: string): Promise<Anthropic.Beta.BetaContentBlockParam> {
+/** Converte o arquivo do currículo em uma entrada que o Claude consegue ler. */
+export async function readResumeFile(filePath: string): Promise<Part> {
   const ext = path.extname(filePath).toLowerCase()
   const { size } = await fs.stat(filePath)
   if (size > MAX_BYTES) throw new Error('O arquivo passa de 20 MB. Exporte uma versão menor do currículo.')
 
   if (ext === '.pdf') {
     const data = (await fs.readFile(filePath)).toString('base64')
-    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+    return { type: 'pdf', data }
   }
 
   if (ext in IMAGE_TYPES) {
     const data = (await fs.readFile(filePath)).toString('base64')
-    const media_type = IMAGE_TYPES[ext as keyof typeof IMAGE_TYPES]
-    return { type: 'image', source: { type: 'base64', media_type, data } }
+    return { type: 'image', mediaType: IMAGE_TYPES[ext as keyof typeof IMAGE_TYPES], data }
   }
 
   let text: string

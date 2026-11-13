@@ -12,6 +12,8 @@ import type {
 } from '../shared/types'
 import { captureScreen } from './capture'
 import { analyzeGithubRepos, extractProfile, generateResume } from './claude'
+import type { EngineConfig } from './engine'
+import { detectClaudeCode } from './engine-claude-code'
 import { installGnomeShortcut, isGnomeWayland } from './gnome-shortcut'
 import { fetchGithubRepos } from './github'
 import { htmlToPdf, renderResumeHtml } from './pdf'
@@ -156,6 +158,21 @@ async function registerShortcut(): Promise<void> {
   }
 }
 
+/** Monta o motor escolhido em Configurações, ou explica o que falta para usá-lo. */
+async function getEngine(): Promise<EngineConfig> {
+  const { engine, model } = store.getAi()
+  if (engine === 'claude-code') {
+    const status = await detectClaudeCode()
+    if (!status.found || !status.path) {
+      throw new Error('Claude Code não encontrado. Instale-o ou volte para o modo API em Configurações.')
+    }
+    return { engine, model, cliPath: status.path }
+  }
+  const { key } = await store.getApiKey()
+  if (!key) throw new Error('Cadastre sua chave de API da Anthropic em Configurações.')
+  return { engine, model, apiKey: key }
+}
+
 async function settingsInfo(): Promise<SettingsInfo> {
   const { key, source } = await store.getApiKey()
   return {
@@ -165,7 +182,9 @@ async function settingsInfo(): Promise<SettingsInfo> {
     shortcutRegistered,
     shortcutError,
     shortcutViaSystem: useSystemShortcut,
-    wayland: isWayland
+    wayland: isWayland,
+    ...store.getAi(),
+    claudeCode: await detectClaudeCode()
   }
 }
 
@@ -200,6 +219,17 @@ function registerIpc(): void {
     await store.setApiKey(key)
     return settingsInfo()
   })
+  ipcMain.handle('settings:setAi', (_event, choice: { engine?: unknown; model?: unknown }) => {
+    store.setAi({
+      ...(choice.engine === 'api' || choice.engine === 'claude-code' ? { engine: choice.engine } : {}),
+      ...(choice.model === 'opus' || choice.model === 'sonnet' ? { model: choice.model } : {})
+    })
+    return settingsInfo()
+  })
+  ipcMain.handle('settings:detectClaudeCode', async () => {
+    await detectClaudeCode(true)
+    return settingsInfo()
+  })
   ipcMain.handle('settings:setShortcut', async (_event, accelerator: string) => {
     store.setShortcut(accelerator.trim() || store.DEFAULT_SHORTCUT)
     await registerShortcut()
@@ -209,13 +239,12 @@ function registerIpc(): void {
   ipcMain.handle('capture:now', () => captureAndShow())
 
   ipcMain.handle('resume:generate', async (_event, request: GenerateRequest): Promise<GenerateResult> => {
-    const { key } = await store.getApiKey()
-    if (!key) throw new Error('Cadastre sua chave de API da Anthropic em Configurações.')
+    const engine = await getEngine()
     if (!request.imageDataUrl && !request.jobText.trim()) {
       throw new Error('Capture a tela da vaga ou cole o texto dela.')
     }
     const profile = store.getProfile()
-    const resume = await generateResume(key, profile, request, store.getGithubCatalog())
+    const resume = await generateResume(engine, profile, request, store.getGithubCatalog())
     return { resume, html: renderResumeHtml(resume, profile.personal) }
   })
 
@@ -234,10 +263,9 @@ function registerIpc(): void {
   ipcMain.handle('github:catalog', () => store.getGithubCatalog())
 
   ipcMain.handle('github:analyze', async (_event, username: string, profile: Profile): Promise<GithubAnalysisResult> => {
-    const { key } = await store.getApiKey()
-    if (!key) throw new Error('Cadastre sua chave de API da Anthropic em Configurações.')
+    const engine = await getEngine()
     const fetched = await fetchGithubRepos(username)
-    const analysis = await analyzeGithubRepos(key, profile, fetched.repos)
+    const analysis = await analyzeGithubRepos(engine, profile, fetched.repos)
 
     // Links e metadados vêm do GitHub, nunca do texto do modelo; sugestões sem repositório real são descartadas.
     const byName = new Map(fetched.repos.map((repo) => [repo.name.toLowerCase(), repo]))
@@ -280,8 +308,7 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('profile:importResumeFile', async () => {
-    const { key } = await store.getApiKey()
-    if (!key) throw new Error('Cadastre sua chave de API da Anthropic em Configurações.')
+    const engine = await getEngine()
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Importar currículo existente',
       properties: ['openFile'],
@@ -291,7 +318,7 @@ function registerIpc(): void {
       ]
     })
     if (result.canceled || !result.filePaths[0]) return null
-    return extractProfile(key, await readResumeFile(result.filePaths[0]))
+    return extractProfile(engine, await readResumeFile(result.filePaths[0]))
   })
 }
 

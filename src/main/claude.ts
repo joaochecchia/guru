@@ -1,20 +1,16 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
-import type { z } from 'zod'
 import {
   GithubAnalysisSchema,
   ProfileImportSchema,
   TailoredResumeSchema,
+  type GenerateRequest,
   type GithubAnalysis,
   type GithubCatalog,
   type GithubRepoInfo,
-  type GenerateRequest,
   type Profile,
   type ProfileImport,
   type TailoredResume
 } from '../shared/types'
-
-const MODEL = 'claude-opus-5-5'
+import { runTask, type EngineConfig, type Part } from './engine'
 
 const RESUME_PROMPT = `Você monta currículos sob medida para uma vaga específica.
 
@@ -76,91 +72,33 @@ function profileForModel(profile: Profile): unknown {
   }
 }
 
-/** Faz uma chamada com saída estruturada e traduz os erros da API para mensagens que a pessoa entende. */
-async function callStructured<S extends z.ZodType>(
-  apiKey: string,
-  schema: S,
-  system: Anthropic.Beta.BetaTextBlockParam[],
-  content: Anthropic.Beta.BetaContentBlockParam[]
-): Promise<z.infer<S>> {
-  const client = new Anthropic({ apiKey })
-  try {
-    const response = await client.beta.messages.parse({
-      model: MODEL,
-      max_tokens: 16000,
-      output_config: { effort: 'medium', format: betaZodOutputFormat(schema) },
-      // Se o modelo principal recusar o pedido, a API tenta de novo em um modelo alternativo.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system,
-      messages: [{ role: 'user', content }]
-    })
-
-    if (response.stop_reason === 'refusal') {
-      throw new Error('O Claude recusou este pedido. Confira o conteúdo enviado e tente de novo.')
-    }
-    if (response.stop_reason === 'max_tokens' || !response.parsed_output) {
-      throw new Error('A resposta veio incompleta. Tente de novo.')
-    }
-    return response.parsed_output
-  } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      throw new Error('Chave de API inválida. Confira a chave em Configurações.')
-    }
-    if (error instanceof Anthropic.PermissionDeniedError) {
-      throw new Error('Esta chave de API não tem acesso ao modelo usado pelo app.')
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      throw new Error('Limite de requisições atingido. Aguarde um pouco e tente de novo.')
-    }
-    if (error instanceof Anthropic.APIConnectionError) {
-      throw new Error('Sem conexão com a API da Anthropic. Verifique sua internet.')
-    }
-    if (error instanceof Anthropic.APIError) {
-      throw new Error(`A API da Anthropic respondeu com erro ${error.status ?? ''}: ${error.message}`)
-    }
-    throw error
-  }
-}
-
 export async function generateResume(
-  apiKey: string,
+  engine: EngineConfig,
   profile: Profile,
   request: GenerateRequest,
   catalog: GithubCatalog | null
 ): Promise<TailoredResume> {
-  const content: Anthropic.Beta.BetaContentBlockParam[] = []
+  const parts: Part[] = []
   if (request.imageDataUrl) {
     const match = /^data:(image\/(?:jpeg|png));base64,(.+)$/.exec(request.imageDataUrl)
     if (!match) throw new Error('A captura de tela está em um formato inesperado.')
-    content.push({
-      type: 'image',
-      source: { type: 'base64', media_type: match[1] as 'image/jpeg' | 'image/png', data: match[2] }
-    })
+    parts.push({ type: 'image', mediaType: match[1] as 'image/jpeg' | 'image/png', data: match[2] })
   }
   const jobText = request.jobText.trim()
-  content.push({
+  parts.push({
     type: 'text',
     text: jobText
       ? `Texto da vaga:\n<vaga>\n${jobText}\n</vaga>\n\nMonte o currículo para esta vaga.`
-      : 'A vaga está na captura de tela acima. Monte o currículo para esta vaga.'
+      : 'A vaga está na captura de tela anexada. Monte o currículo para esta vaga.'
   })
 
-  return callStructured(
-    apiKey,
-    TailoredResumeSchema,
-    [
-      { type: 'text', text: RESUME_PROMPT },
-      {
-        type: 'text',
-        text:
-          `Perfil-mestre do candidato:\n${JSON.stringify(profileForModel(profile), null, 2)}` +
-          catalogForModel(catalog),
-        cache_control: { type: 'ephemeral' }
-      }
-    ],
-    content
-  )
+  return runTask(engine, {
+    schema: TailoredResumeSchema,
+    system: RESUME_PROMPT,
+    context:
+      `Perfil-mestre do candidato:\n${JSON.stringify(profileForModel(profile), null, 2)}` + catalogForModel(catalog),
+    parts
+  })
 }
 
 function catalogForModel(catalog: GithubCatalog | null): string {
@@ -176,7 +114,7 @@ function catalogForModel(catalog: GithubCatalog | null): string {
 
 /** Compara os repositórios com o perfil e devolve o catálogo e as sugestões de enriquecimento. */
 export async function analyzeGithubRepos(
-  apiKey: string,
+  engine: EngineConfig,
   profile: Profile,
   repos: GithubRepoInfo[]
 ): Promise<GithubAnalysis> {
@@ -207,24 +145,26 @@ export async function analyzeGithubRepos(
     lastPush: repo.pushedAt.slice(0, 10),
     readme: repo.readme || '(sem README)'
   }))
-  return callStructured(apiKey, GithubAnalysisSchema, [{ type: 'text', text: GITHUB_PROMPT }], [
-    {
-      type: 'text',
-      text:
-        `<perfil>\n${JSON.stringify(profileView, null, 2)}\n</perfil>\n\n` +
-        `<repositorios>\n${JSON.stringify(repoView, null, 2)}\n</repositorios>\n\n` +
-        'Analise os repositórios em relação ao perfil.'
-    }
-  ])
+  return runTask(engine, {
+    schema: GithubAnalysisSchema,
+    system: GITHUB_PROMPT,
+    parts: [
+      {
+        type: 'text',
+        text:
+          `<perfil>\n${JSON.stringify(profileView, null, 2)}\n</perfil>\n\n` +
+          `<repositorios>\n${JSON.stringify(repoView, null, 2)}\n</repositorios>\n\n` +
+          'Analise os repositórios em relação ao perfil.'
+      }
+    ]
+  })
 }
 
-/** Lê um currículo existente (já convertido em blocos de conteúdo) e devolve os campos do perfil. */
-export async function extractProfile(
-  apiKey: string,
-  document: Anthropic.Beta.BetaContentBlockParam
-): Promise<ProfileImport> {
-  return callStructured(apiKey, ProfileImportSchema, [{ type: 'text', text: IMPORT_PROMPT }], [
-    document,
-    { type: 'text', text: 'Transcreva este currículo para os campos do perfil.' }
-  ])
+/** Lê um currículo existente e devolve os campos do perfil. */
+export async function extractProfile(engine: EngineConfig, document: Part): Promise<ProfileImport> {
+  return runTask(engine, {
+    schema: ProfileImportSchema,
+    system: IMPORT_PROMPT,
+    parts: [document, { type: 'text', text: 'Transcreva este currículo para os campos do perfil.' }]
+  })
 }

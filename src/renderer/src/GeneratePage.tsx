@@ -73,7 +73,8 @@ export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onO
       if (path) setSavedPath(path)
     })
 
-  const needsApiKey = error?.includes('chave de API') || error?.includes('Chave de API')
+  // Erros que se resolvem em Configurações (chave, motor, Claude Code) ganham um atalho para lá.
+  const needsSettings = /chave de API|Configurações|Claude Code/i.test(error ?? '')
 
   return (
     <div className="page">
@@ -116,7 +117,7 @@ export function GeneratePage({ capture, autoGenerateSignal, onCaptureChange, onO
       {error && (
         <div className="notice error" role="alert">
           {error}{' '}
-          {needsApiKey && (
+          {needsSettings && (
             <button className="link" onClick={onOpenSettings}>
               Abrir Configurações
             </button>

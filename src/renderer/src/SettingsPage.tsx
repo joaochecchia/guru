@@ -43,7 +43,113 @@ export function SettingsPage() {
       {message && <div className="notice">{message}</div>}
 
       <section className="card">
+        <h2>Motor de IA</h2>
+        <div className="options" role="radiogroup" aria-label="Motor de IA">
+          <label className="option">
+            <input
+              type="radio"
+              name="engine"
+              checked={info.engine === 'api'}
+              onChange={() => apply(() => window.guru.setAi({ engine: 'api' }), 'Usando a API da Anthropic.')}
+            />
+            <span>
+              <strong>API da Anthropic</strong> <span className="badge">Recomendado</span>
+              <br />
+              <span className="hint">Cobrado por uso na sua conta da API. Mais rápido e com formato garantido.</span>
+            </span>
+          </label>
+          <label className="option">
+            <input
+              type="radio"
+              name="engine"
+              checked={info.engine === 'claude-code'}
+              onChange={() =>
+                apply(() => window.guru.setAi({ engine: 'claude-code' }), 'Usando o Claude Code com sua assinatura.')
+              }
+            />
+            <span>
+              <strong>Claude Code com sua assinatura</strong> <span className="badge warn">Experimental</span>
+              <br />
+              <span className="hint">
+                Usa o Claude Code instalado neste computador e conta no limite de uso da sua assinatura Pro ou Max.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {info.engine === 'claude-code' && (
+          <>
+            <div className={info.claudeCode.found ? 'notice ok' : 'notice error'}>
+              {info.claudeCode.found ? (
+                <>
+                  Claude Code {info.claudeCode.version} encontrado em <code>{info.claudeCode.path}</code>. Ele precisa
+                  estar logado: se a geração falhar por login, rode <code>claude</code> num terminal e use{' '}
+                  <code>/login</code>.
+                </>
+              ) : (
+                <>
+                  Claude Code não encontrado. Instale seguindo{' '}
+                  <a href="https://docs.claude.com/en/docs/claude-code/setup" target="_blank" rel="noreferrer">
+                    o guia oficial
+                  </a>
+                  , faça login e clique em Procurar de novo.
+                </>
+              )}{' '}
+              <button
+                className="link"
+                onClick={() => apply(() => window.guru.detectClaudeCode(), 'Busca pelo Claude Code concluída.')}
+              >
+                Procurar de novo
+              </button>
+            </div>
+            <div className="notice warn">
+              <strong>Antes de usar, leia sobre os termos.</strong> A Anthropic restringe o uso de assinaturas do
+              claude.ai por produtos de terceiros. Este modo existe para uso pessoal, com o Claude Code e a conta da
+              própria pessoa. Na dúvida, use a API.
+            </div>
+          </>
+        )}
+
+        <h3 className="subhead">Modelo</h3>
+        <div className="options" role="radiogroup" aria-label="Modelo">
+          <label className="option">
+            <input
+              type="radio"
+              name="model"
+              checked={info.model === 'opus'}
+              onChange={() => apply(() => window.guru.setAi({ model: 'opus' }), 'Modelo: Claude Opus.')}
+            />
+            <span>
+              <strong>Opus</strong>
+              <br />
+              <span className="hint">Melhor qualidade de escrita e seleção do que importa para cada vaga.</span>
+            </span>
+          </label>
+          <label className="option">
+            <input
+              type="radio"
+              name="model"
+              checked={info.model === 'sonnet'}
+              onChange={() => apply(() => window.guru.setAi({ model: 'sonnet' }), 'Modelo: Claude Sonnet.')}
+            />
+            <span>
+              <strong>Sonnet</strong>
+              <br />
+              <span className="hint">
+                {info.engine === 'api'
+                  ? 'Metade do custo do Opus na API e mais rápido. Bom para a maioria das vagas.'
+                  : 'Mais rápido e gasta menos do limite da assinatura.'}
+              </span>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section className="card">
         <h2>Chave de API da Anthropic</h2>
+        {info.engine === 'claude-code' && (
+          <p className="hint">Não é usada enquanto o motor for o Claude Code.</p>
+        )}
         <p className="hint">
           {keyStatus} Crie a sua em{' '}
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
